@@ -2,7 +2,7 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <title>Galaxy Hearts & Tree</title>
+    <title>Galaxy Heart → RGB Tree</title>
     <style>
       html,
       body {
@@ -18,6 +18,7 @@
         top: 0;
         left: 0;
       }
+
       #startBtn {
         position: absolute;
         top: 50%;
@@ -38,6 +39,7 @@
           transform: translate(-50%, -50%) scale(1.1);
         }
       }
+
       #text {
         position: absolute;
         left: 50%;
@@ -56,38 +58,30 @@
         color: #ff9adf;
         text-shadow: 0 0 20px #ffb6d9;
       }
+
       #imgContainer {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        display: grid;
+        display: none;
         grid-template-columns: repeat(2, 120px);
         grid-template-rows: repeat(2, 120px);
         gap: 20px;
-        justify-content: center;
-        align-items: center;
-        pointer-events: auto;
-        display: none;
-        transition: all 0.5s ease;
       }
       #imgContainer img {
         width: 100px;
         height: 100px;
-        object-fit: cover;
-        transition: all 0.5s ease, box-shadow 0.3s ease;
-        cursor: pointer;
-        opacity: 1;
         border-radius: 15px;
-      }
-      #imgContainer img:hover {
-        transform: scale(1.2);
+        cursor: pointer;
+        transition: 0.4s;
+        border: 4px solid transparent;
       }
       #imgContainer img.zoomed {
         width: 300px;
         height: 300px;
+        transform: scale(1.4);
         z-index: 10;
-        transform: scale(1.5);
         border-radius: 25px;
       }
       #imgContainer img.hidden {
@@ -96,49 +90,49 @@
       }
     </style>
   </head>
+
   <body>
     <canvas id="cv"></canvas>
+
     <button id="startBtn">
       💙 BẮT ĐẦU 💙<br />
-      <small>
-        B1: Bấm bắt đầu<br />
-        B2: Click phải chuột<br />
-        B3: Click trái chuột
-      </small>
+      <small>B1: Bắt đầu<br />B2: Chuột phải<br />B3: Chuột trái</small>
     </button>
+
     <div id="text"></div>
     <div id="imgContainer"></div>
+
     <audio id="music" loop>
       <source src="./piano2.mp3" type="audio/mpeg" />
     </audio>
 
     <script>
       const cv = document.getElementById("cv"),
-        ctx = cv.getContext("2d");
-      const btn = document.getElementById("startBtn"),
-        music = document.getElementById("music");
-      const textBox = document.getElementById("text"),
+        ctx = cv.getContext("2d"),
+        btn = document.getElementById("startBtn"),
+        music = document.getElementById("music"),
+        textBox = document.getElementById("text"),
         imgContainer = document.getElementById("imgContainer");
 
       let W,
         H,
         run = false,
-        formed = false;
+        formed = false,
+        treeDone = false;
       let dots = [],
-        DOT_COUNT = 1000,
         snow = [],
-        treeParticles = [],
-        treeMode = false;
+        treeParticles = [];
       let zoomedImg = null;
+      const DOT_COUNT = 1000;
 
       function resize() {
-        W = cv.width = window.innerWidth;
-        H = cv.height = window.innerHeight;
+        W = cv.width = innerWidth;
+        H = cv.height = innerHeight;
       }
-      window.onresize = resize;
       resize();
+      onresize = resize;
 
-      /* STARS */
+      /* STARS BACKGROUND */
       let stars = [...Array(200)].map(() => ({
         x: Math.random() * W,
         y: Math.random() * H,
@@ -147,11 +141,11 @@
       }));
 
       /* HEART */
-      function heart(t, scale = 1) {
+      function heart(t, s = 1) {
         return {
-          x: scale * 16 * Math.pow(Math.sin(t), 3),
+          x: s * 16 * Math.sin(t) ** 3,
           y:
-            scale *
+            s *
             -(
               13 * Math.cos(t) -
               5 * Math.cos(2 * t) -
@@ -160,25 +154,22 @@
             ),
         };
       }
-
-      /* DRAW MINI HEART */
-      function drawMiniHeart(x, y, size, alpha, color = "#bfefff") {
+      function drawMiniHeart(x, y, sz, a, col) {
         ctx.save();
         ctx.translate(x, y);
-        ctx.scale(size, size);
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = color;
+        ctx.scale(sz, sz);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = col;
         ctx.beginPath();
         for (let t = 0; t <= Math.PI * 2; t += 0.2) {
-          let p = heart(t, 1);
+          let p = heart(t);
           ctx.lineTo(p.x, p.y);
         }
-        ctx.closePath();
         ctx.fill();
         ctx.restore();
       }
 
-      /* INIT HEART PARTICLES */
+      /* INIT HEART */
       function initDots() {
         dots = [];
         for (let i = 0; i < DOT_COUNT; i++) {
@@ -186,111 +177,90 @@
             p = heart(t, 12);
           dots.push({
             angle: Math.random() * Math.PI * 2,
-            radius: 500 + Math.random() * 300,
+            radius: 600 + Math.random() * 300,
             tx: p.x,
             ty: p.y,
-            x: 0,
-            y: 0,
           });
         }
       }
       initDots();
 
-      /* CLICK EVENTS */
+      /* LEFT CLICK */
       cv.onclick = () => {
         if (!formed) return;
-        if (dots.length > 0) {
-          dots.forEach((d) => {
-            snow.push({
-              x: W / 2 + d.tx,
-              y: H / 2 - d.ty,
-              vx: (Math.random() - 0.5) * 2,
-              vy: Math.random() * 2 + 1,
-              alpha: 1,
-              color: "#ff9ac4",
-            });
+        dots.forEach((d) => {
+          snow.push({
+            x: W / 2 + d.tx,
+            y: H / 2 - d.ty,
+            vx: (Math.random() - 0.5) * 2,
+            vy: Math.random() * 2 + 1,
+            a: 1,
+            color: "#ff9ac4",
           });
-          dots = [];
-          formed = false;
-        }
+        });
+        dots = [];
+        formed = false;
         showImages();
       };
 
+      /* RIGHT CLICK → TREE */
       cv.oncontextmenu = (e) => {
         e.preventDefault();
         if (!formed) return;
-        treeMode = true;
+
         treeParticles = [];
-        // tuyết bay ra
-        snow.forEach((s) => {
-          s.vx = (Math.random() - 0.5) * 10;
-          s.vy = (Math.random() - 0.5) * 10;
-        });
-        // tạo cây thông
-        const baseY = H - 50,
-          levels = 8;
+        treeDone = false;
+
+        const levels = 10;
+        const baseY = H - 80;
+
         for (let l = 0; l < levels; l++) {
-          let count = (levels - l) * 6;
+          let width = (levels - l) * 14;
+          let count = (levels - l) * 7;
           for (let i = 0; i < count; i++) {
-            let tx = W / 2 + (i - count / 2) * 15,
-              ty = baseY - l * 30,
-              z = Math.random() * 300 + 50;
+            let tx = W / 2 + (i - count / 2) * width;
+            let ty = baseY - l * 35;
             treeParticles.push({
-              x: Math.random() * W,
-              y: Math.random() * H,
+              cx: W / 2,
+              cy: H / 2,
+              angle: Math.random() * Math.PI * 2,
+              radius: Math.random() * Math.max(W, H),
               tx,
               ty,
-              z,
-              alpha: 1,
+              hue: l * 30,
+              a: 1,
             });
           }
         }
       };
 
-      /* SHOW 4 IMAGES */
-      const glowColors = ["#ff0000", "#00ff00", "#00ffff", "#ff00ff"];
+      /* IMAGES */
+      const imgColors = ["#ff004c", "#00ffcc", "#00aaff", "#cc00ff"];
       function showImages() {
         imgContainer.innerHTML = "";
         imgContainer.style.display = "grid";
-        const srcs = ["./d.jfif", "./k.jfif", "./h.jfif", "./q.jfif"];
-        srcs.forEach((src, i) => {
+        ["./d.jfif", "./k.jfif", "./h.jfif", "./q.jfif"].forEach((src, i) => {
           let im = document.createElement("img");
           im.src = src;
-          let color = glowColors[i];
-          im.addEventListener("mouseenter", () => {
-            if (!im.classList.contains("zoomed"))
-              im.style.boxShadow = `0 0 20px ${color}`;
-          });
-          im.addEventListener("mouseleave", () => {
-            if (!im.classList.contains("zoomed")) im.style.boxShadow = "none";
-          });
-          im.addEventListener("click", () => {
+          im.style.boxShadow = `0 0 20px ${imgColors[i]}`;
+          im.onclick = () => {
             if (zoomedImg === im) {
               im.classList.remove("zoomed");
               document
                 .querySelectorAll("#imgContainer img")
-                .forEach((img) => img.classList.remove("hidden"));
+                .forEach((x) => x.classList.remove("hidden"));
+              im.style.borderColor = "transparent";
               zoomedImg = null;
-              im.style.boxShadow = "none";
             } else {
-              document.querySelectorAll("#imgContainer img").forEach((img) => {
-                if (img !== im) img.classList.add("hidden");
-              });
+              document
+                .querySelectorAll("#imgContainer img")
+                .forEach((x) => x !== im && x.classList.add("hidden"));
               im.classList.add("zoomed");
+              im.style.borderColor = imgColors[i];
+              im.style.boxShadow = `0 0 40px ${imgColors[i]}`;
               zoomedImg = im;
-              im.style.boxShadow = `0 0 40px ${color}`;
-              for (let i = 0; i < 50; i++) {
-                snow.push({
-                  x: W / 2,
-                  y: H / 2,
-                  vx: (Math.random() - 0.5) * 4,
-                  vy: (Math.random() - 0.5) * 4,
-                  alpha: 1,
-                  color: "#fff",
-                });
-              }
             }
-          });
+          };
           imgContainer.appendChild(im);
         });
       }
@@ -299,69 +269,91 @@
       function draw() {
         if (!run) return;
         ctx.clearRect(0, 0, W, H);
+
+        /* stars */
         stars.forEach((s) => {
           ctx.globalAlpha = s.a;
-          ctx.fillStyle = "white";
+          ctx.fillStyle = "#fff";
           ctx.beginPath();
           ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
           ctx.fill();
         });
         ctx.globalAlpha = 1;
 
-        if (dots.length > 0) {
+        /* HEART */
+        if (dots.length) {
           ctx.save();
           ctx.translate(W / 2, H / 2);
           dots.forEach((d) => {
             d.angle += 0.02;
             d.radius *= 0.992;
-            d.x = Math.cos(d.angle) * d.radius + d.tx * (1 - d.radius / 600);
-            d.y = Math.sin(d.angle) * d.radius + d.ty * (1 - d.radius / 600);
-            drawMiniHeart(d.x, d.y, 0.06, 1 - d.radius / 800);
+            let x = Math.cos(d.angle) * d.radius + d.tx * (1 - d.radius / 600);
+            let y = Math.sin(d.angle) * d.radius + d.ty * (1 - d.radius / 600);
+            drawMiniHeart(x, y, 0.06, 1 - d.radius / 900, "#6fdcff");
           });
           ctx.restore();
-          if (!formed && dots.every((d) => d.radius < 25)) formed = true;
-          if (formed) {
-            ctx.save();
-            ctx.translate(W / 2, H / 2);
-            ctx.beginPath();
-            for (let t = 0; t <= Math.PI * 2; t += 0.01) {
-              let p = heart(t, 12);
-              ctx.lineTo(p.x, p.y);
-            }
-            ctx.closePath();
-            ctx.shadowColor = "#6fdcff";
-            ctx.shadowBlur = 80;
-            ctx.fillStyle = "#4facfe";
-            ctx.fill();
-            ctx.restore();
-          }
+          if (dots.every((d) => d.radius < 30)) formed = true;
         }
 
-        // snow
+        /* SNOW */
         snow.forEach((s) => {
-          ctx.globalAlpha = s.alpha;
-          drawMiniHeart(s.x, s.y, 0.08, s.alpha, s.color);
+          drawMiniHeart(s.x, s.y, 0.08, s.a, s.color || "#fff");
           s.x += s.vx;
           s.y += s.vy;
-          s.alpha -= 0.01;
+          s.a -= 0.01;
         });
-        snow = snow.filter((s) => s.alpha > 0);
+        snow = snow.filter((s) => s.a > 0);
 
-        // treeParticles
+        /* TREE */
         treeParticles.forEach((p) => {
-          let speed = 0.03 + 0.002 * p.z;
-          p.x += (p.tx - p.x) * speed;
-          p.y += (p.ty - p.y) * speed;
-          let scale = 0.3 + 0.7 * (1 - p.z / 350);
-          drawMiniHeart(p.x, p.y, scale, p.alpha, "#0f0");
-          p.alpha *= 0.99;
+          p.angle += 0.05;
+          p.radius *= 0.95;
+          let sx = p.cx + Math.cos(p.angle) * p.radius;
+          let sy = p.cy + Math.sin(p.angle) * p.radius;
+          p.x = sx + (p.tx - sx) * 0.1;
+          p.y = sy + (p.ty - sy) * 0.1;
+          let col = `hsl(${p.hue},100%,60%)`;
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 20;
+          drawMiniHeart(p.x, p.y, 0.4, p.a, col);
+          p.a *= 0.99;
+          if (p.radius < 15) treeDone = true;
         });
-        treeParticles = treeParticles.filter((p) => p.alpha > 0);
+
+        /* STAR TOP */
+        if (treeDone) {
+          ctx.save();
+          ctx.translate(W / 2, H - 80 - 10 * 35 - 20);
+          ctx.rotate(Date.now() / 500);
+          ctx.fillStyle = "#fff200";
+          ctx.shadowColor = "#fff";
+          ctx.shadowBlur = 40;
+          ctx.beginPath();
+          for (let i = 0; i < 5; i++) {
+            ctx.lineTo(0, -30);
+            ctx.rotate(Math.PI / 5);
+            ctx.lineTo(0, -12);
+            ctx.rotate(Math.PI / 5);
+          }
+          ctx.fill();
+          ctx.restore();
+
+          if (Math.random() < 0.3) {
+            snow.push({
+              x: Math.random() * W,
+              y: -10,
+              vx: 0,
+              vy: 1 + Math.random(),
+              a: 1,
+              color: "#fff",
+            });
+          }
+        }
 
         requestAnimationFrame(draw);
       }
 
-      /* START BUTTON */
+      /* START */
       btn.onclick = () => {
         btn.style.display = "none";
         run = true;
@@ -370,7 +362,7 @@
         showText();
       };
 
-      /* TEXT VÒNG QUANH */
+      /* TEXT */
       function showText() {
         textBox.innerHTML = "";
         const txt = " See you ✨ Thanks and Bye ✨ ";
@@ -380,24 +372,23 @@
           s.innerText = c;
           s.style.transform = `rotate(${
             i * step
-          }deg) translateY(-220px) scale(0.5)`;
+          }deg) translateY(-220px) scale(.5)`;
           s.style.opacity = 0;
-          s.style.transition = "all 1s cubic-bezier(0.65,0,0.35,1)";
+          s.style.transition = "1s";
           textBox.appendChild(s);
           setTimeout(() => {
             s.style.opacity = 1;
             s.style.transform = `rotate(${
               i * step
             }deg) translateY(-220px) scale(1)`;
-          }, i * 100);
+          }, i * 80);
         });
-        let angle = 0;
-        function rotateText() {
-          angle += 0.2;
-          textBox.style.transform = `rotate(${angle}deg)`;
-          requestAnimationFrame(rotateText);
-        }
-        rotateText();
+        let a = 0;
+        (function rot() {
+          a += 0.2;
+          textBox.style.transform = `rotate(${a}deg)`;
+          requestAnimationFrame(rot);
+        })();
       }
     </script>
   </body>
