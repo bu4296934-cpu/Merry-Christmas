@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Galaxy Hearts & Tree</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(circle at bottom, #0b1d3a, #000);
+        font-family: "Segoe UI", sans-serif;
+      }
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      #startBtn {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 18px 44px;
+        font-size: 20px;
+        border-radius: 40px;
+        border: none;
+        background: #4facfe;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 0 30px #7fd7ff;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        50% {
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+      }
+      #text {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 440px;
+        height: 440px;
+        margin: -220px 0 0 -220px;
+        pointer-events: none;
+      }
+      #text span {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform-origin: 0 220px;
+        font-size: 22px;
+        color: #ff9adf;
+        text-shadow: 0 0 20px #ffb6d9;
+      }
+      #imgContainer {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: grid;
+        grid-template-columns: repeat(2, 120px);
+        grid-template-rows: repeat(2, 120px);
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+        pointer-events: auto;
+        display: none;
+        transition: all 0.5s ease;
+      }
+      #imgContainer img {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        transition: all 0.5s ease, box-shadow 0.3s ease;
+        cursor: pointer;
+        opacity: 1;
+        border-radius: 15px;
+      }
+      #imgContainer img:hover {
+        transform: scale(1.2);
+      }
+      #imgContainer img.zoomed {
+        width: 300px;
+        height: 300px;
+        z-index: 10;
+        transform: scale(1.5);
+        border-radius: 25px;
+      }
+      #imgContainer img.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="cv"></canvas>
+    <button id="startBtn">
+      💙 BẮT ĐẦU 💙<br />
+      <small>
+        B1: Bấm bắt đầu<br />
+        B2: Click phải chuột<br />
+        B3: Click trái chuột
+      </small>
+    </button>
+    <div id="text"></div>
+    <div id="imgContainer"></div>
+    <audio id="music" loop>
+      <source src="./piano2.mp3" type="audio/mpeg" />
+    </audio>
+
+    <script>
+      const cv = document.getElementById("cv"),
+        ctx = cv.getContext("2d");
+      const btn = document.getElementById("startBtn"),
+        music = document.getElementById("music");
+      const textBox = document.getElementById("text"),
+        imgContainer = document.getElementById("imgContainer");
+
+      let W,
+        H,
+        run = false,
+        formed = false;
+      let dots = [],
+        DOT_COUNT = 1000,
+        snow = [],
+        treeParticles = [],
+        treeMode = false;
+      let zoomedImg = null;
+
+      function resize() {
+        W = cv.width = window.innerWidth;
+        H = cv.height = window.innerHeight;
+      }
+      window.onresize = resize;
+      resize();
+
+      /* STARS */
+      let stars = [...Array(200)].map(() => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.5,
+        a: Math.random(),
+      }));
+
+      /* HEART */
+      function heart(t, scale = 1) {
+        return {
+          x: scale * 16 * Math.pow(Math.sin(t), 3),
+          y:
+            scale *
+            -(
+              13 * Math.cos(t) -
+              5 * Math.cos(2 * t) -
+              2 * Math.cos(3 * t) -
+              Math.cos(4 * t)
+            ),
+        };
+      }
+
+      /* DRAW MINI HEART */
+      function drawMiniHeart(x, y, size, alpha, color = "#bfefff") {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(size, size);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        for (let t = 0; t <= Math.PI * 2; t += 0.2) {
+          let p = heart(t, 1);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      /* INIT HEART PARTICLES */
+      function initDots() {
+        dots = [];
+        for (let i = 0; i < DOT_COUNT; i++) {
+          let t = Math.random() * Math.PI * 2,
+            p = heart(t, 12);
+          dots.push({
+            angle: Math.random() * Math.PI * 2,
+            radius: 500 + Math.random() * 300,
+            tx: p.x,
+            ty: p.y,
+            x: 0,
+            y: 0,
+          });
+        }
+      }
+      initDots();
+
+      /* CLICK EVENTS */
+      cv.onclick = () => {
+        if (!formed) return;
+        if (dots.length > 0) {
+          dots.forEach((d) => {
+            snow.push({
+              x: W / 2 + d.tx,
+              y: H / 2 - d.ty,
+              vx: (Math.random() - 0.5) * 2,
+              vy: Math.random() * 2 + 1,
+              alpha: 1,
+              color: "#ff9ac4",
+            });
+          });
+          dots = [];
+          formed = false;
+        }
+        showImages();
+      };
+
+      cv.oncontextmenu = (e) => {
+        e.preventDefault();
+        if (!formed) return;
+        treeMode = true;
+        treeParticles = [];
+        // tuyết bay ra
+        snow.forEach((s) => {
+          s.vx = (Math.random() - 0.5) * 10;
+          s.vy = (Math.random() - 0.5) * 10;
+        });
+        // tạo cây thông
+        const baseY = H - 50,
+          levels = 8;
+        for (let l = 0; l < levels; l++) {
+          let count = (levels - l) * 6;
+          for (let i = 0; i < count; i++) {
+            let tx = W / 2 + (i - count / 2) * 15,
+              ty = baseY - l * 30,
+              z = Math.random() * 300 + 50;
+            treeParticles.push({
+              x: Math.random() * W,
+              y: Math.random() * H,
+              tx,
+              ty,
+              z,
+              alpha: 1,
+            });
+          }
+        }
+      };
+
+      /* SHOW 4 IMAGES */
+      const glowColors = ["#ff0000", "#00ff00", "#00ffff", "#ff00ff"];
+      function showImages() {
+        imgContainer.innerHTML = "";
+        imgContainer.style.display = "grid";
+        const srcs = ["./d.jfif", "./k.jfif", "./h.jfif", "./q.jfif"];
+        srcs.forEach((src, i) => {
+          let im = document.createElement("img");
+          im.src = src;
+          let color = glowColors[i];
+          im.addEventListener("mouseenter", () => {
+            if (!im.classList.contains("zoomed"))
+              im.style.boxShadow = `0 0 20px ${color}`;
+          });
+          im.addEventListener("mouseleave", () => {
+            if (!im.classList.contains("zoomed")) im.style.boxShadow = "none";
+          });
+          im.addEventListener("click", () => {
+            if (zoomedImg === im) {
+              im.classList.remove("zoomed");
+              document
+                .querySelectorAll("#imgContainer img")
+                .forEach((img) => img.classList.remove("hidden"));
+              zoomedImg = null;
+              im.style.boxShadow = "none";
+            } else {
+              document.querySelectorAll("#imgContainer img").forEach((img) => {
+                if (img !== im) img.classList.add("hidden");
+              });
+              im.classList.add("zoomed");
+              zoomedImg = im;
+              im.style.boxShadow = `0 0 40px ${color}`;
+              for (let i = 0; i < 50; i++) {
+                snow.push({
+                  x: W / 2,
+                  y: H / 2,
+                  vx: (Math.random() - 0.5) * 4,
+                  vy: (Math.random() - 0.5) * 4,
+                  alpha: 1,
+                  color: "#fff",
+                });
+              }
+            }
+          });
+          imgContainer.appendChild(im);
+        });
+      }
+
+      /* DRAW LOOP */
+      function draw() {
+        if (!run) return;
+        ctx.clearRect(0, 0, W, H);
+        stars.forEach((s) => {
+          ctx.globalAlpha = s.a;
+          ctx.fillStyle = "white";
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        if (dots.length > 0) {
+          ctx.save();
+          ctx.translate(W / 2, H / 2);
+          dots.forEach((d) => {
+            d.angle += 0.02;
+            d.radius *= 0.992;
+            d.x = Math.cos(d.angle) * d.radius + d.tx * (1 - d.radius / 600);
+            d.y = Math.sin(d.angle) * d.radius + d.ty * (1 - d.radius / 600);
+            drawMiniHeart(d.x, d.y, 0.06, 1 - d.radius / 800);
+          });
+          ctx.restore();
+          if (!formed && dots.every((d) => d.radius < 25)) formed = true;
+          if (formed) {
+            ctx.save();
+            ctx.translate(W / 2, H / 2);
+            ctx.beginPath();
+            for (let t = 0; t <= Math.PI * 2; t += 0.01) {
+              let p = heart(t, 12);
+              ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            ctx.shadowColor = "#6fdcff";
+            ctx.shadowBlur = 80;
+            ctx.fillStyle = "#4facfe";
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        // snow
+        snow.forEach((s) => {
+          ctx.globalAlpha = s.alpha;
+          drawMiniHeart(s.x, s.y, 0.08, s.alpha, s.color);
+          s.x += s.vx;
+          s.y += s.vy;
+          s.alpha -= 0.01;
+        });
+        snow = snow.filter((s) => s.alpha > 0);
+
+        // treeParticles
+        treeParticles.forEach((p) => {
+          let speed = 0.03 + 0.002 * p.z;
+          p.x += (p.tx - p.x) * speed;
+          p.y += (p.ty - p.y) * speed;
+          let scale = 0.3 + 0.7 * (1 - p.z / 350);
+          drawMiniHeart(p.x, p.y, scale, p.alpha, "#0f0");
+          p.alpha *= 0.99;
+        });
+        treeParticles = treeParticles.filter((p) => p.alpha > 0);
+
+        requestAnimationFrame(draw);
+      }
+
+      /* START BUTTON */
+      btn.onclick = () => {
+        btn.style.display = "none";
+        run = true;
+        music.play().catch(() => {});
+        draw();
+        showText();
+      };
+
+      /* TEXT VÒNG QUANH */
+      function showText() {
+        textBox.innerHTML = "";
+        const txt = " See you ✨ Thanks and Bye ✨ ";
+        const step = 360 / txt.length;
+        txt.split("").forEach((c, i) => {
+          let s = document.createElement("span");
+          s.innerText = c;
+          s.style.transform = `rotate(${
+            i * step
+          }deg) translateY(-220px) scale(0.5)`;
+          s.style.opacity = 0;
+          s.style.transition = "all 1s cubic-bezier(0.65,0,0.35,1)";
+          textBox.appendChild(s);
+          setTimeout(() => {
+            s.style.opacity = 1;
+            s.style.transform = `rotate(${
+              i * step
+            }deg) translateY(-220px) scale(1)`;
+          }, i * 100);
+        });
+        let angle = 0;
+        function rotateText() {
+          angle += 0.2;
+          textBox.style.transform = `rotate(${angle}deg)`;
+          requestAnimationFrame(rotateText);
+        }
+        rotateText();
+      }
+    </script>
+  </body>
+</html>
